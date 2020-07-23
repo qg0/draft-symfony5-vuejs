@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+# Stress test
+
+ab -c 100 -n 10000 http://php-fpm/api/v1/document

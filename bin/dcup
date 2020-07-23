@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# debug docker
+
+service nginx stop && service php-fpm stop && service mysql stop && service docker start
+rm node_modules -rf
+rm docker/mysql -rf
+rm vendor -rf
+rm bin/.phpunit -rf
+#docker stop $(docker ps -a -q)
+#docker rm $(docker ps -a -q)
+docker stop php-fpm mysql nginx
+docker rm php-fpm mysql nginx
+docker-compose up --force-recreate --always-recreate-deps --remove-orphans --build

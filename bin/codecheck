@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Check and fix the code syntax
+
+clear
+bin/php-cs-fixer fix .php_cs.dist >> /dev/null
+bin/php-cs-fixer fix src
+bin/php-cs-fixer fix tests
+
+echo -e "\033[0;34m\n======================================================================\033[0m"
+
+bin/phpcs --config-set installed_paths vendor/escapestudios/symfony2-coding-standard >> /dev/null
+bin/phpcs --colors --standard=Symfony src | more
+bin/phpcs --colors --standard=Symfony tests | more
+
+echo -e "\033[0;34m\n======================================================================\033[0m"
+
+echo -e "\033[0;32m
+'a' - phpunit
+'c' - codecheck
+\033[1;32m
+'f' - phpunit --stop-on-failure
+\033[0;32m
+'l' - fixtures load
+
+'r' - restart nginx & php-fpm & mysql
+'n' - nscd invalidate
+
+'s' - log nginx access
+'e' - log nginx error
+'m' - log mysql
+'p' - log php-fpm
+\033[0m"
+
+read -rsn1 input
+
+case $input in
+    'a' ) bin/phpunit --colors=always;;
+    'c' ) bin/codecheck;;
+    'f' ) bin/phpunit --colors=always --stop-on-failure;;
+    'l' ) bin/console doctrine:fixtures:load;;
+    'r' ) service nginx restart; service php-fpm restart; service mysql restart;;
+    'n' ) nscd -i hosts;;
+    's' ) tail -f /var/log/nginx/access.log;;
+    'e' ) tail -f /var/log/nginx/error.log;;
+    'm' ) tail -f /var/log/mysql/mysqld.log;;
+    'p' ) tail -f /var/log/php-fpm.log;;
+esac

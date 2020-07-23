@@ -1,0 +1,60 @@
+version: "3.7"
+
+services:
+  mysql:
+    container_name: ${DATABASE_HOST}
+    image: library/mysql
+    command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci','--default-authentication-plugin=mysql_native_password']
+    env_file:
+      - .env
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DATABASE_PASSWORD}"
+      MYSQL_DATABASE: "${DATABASE_NAME}"
+      MYSQL_INITDB_SKIP_TZINFO: "true"
+    expose:
+      - ${DATABASE_PORT}
+    ports:
+      - ${DATABASE_PORT}:${DATABASE_PORT}
+    volumes:
+      - ./docker/mysql:/var/lib/mysql
+    restart: always
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_NICE
+  php-fpm:
+    container_name: ${PHPFPM_HOST}
+    build:
+      context: docker/php-fpm
+    expose:
+      - ${PHPFPM_PORT}
+    ports:
+      - ${PHPFPM_PORT}:${PHPFPM_PORT}
+    volumes:
+      - ./:/var/www/
+    env_file:
+      - .env
+    command: docker/php-fpm/init.sh
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: ${DATABASE_DRIVER}://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}
+      COMPOSER_MEMORY_LIMIT: 8000000000
+    depends_on:
+      - mysql
+    restart: always
+  nginx:
+    container_name: ${NGINX_HOST}
+    image: library/nginx:alpine
+    command: nginx
+    depends_on:
+      - php-fpm
+    expose:
+      - ${NGINX_PORT}
+    ports:
+      - ${NGINX_PORT}:${NGINX_PORT}
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/sites-available/:/etc/nginx/sites-available
+      - ./docker/nginx/conf.d/:/etc/nginx/conf.d
+      - ./:/var/www
+    restart: always
