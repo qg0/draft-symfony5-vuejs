@@ -126,6 +126,10 @@ bin/phpcs --standard=Symfony tests
 ```
 
 ## Testing
+## Increase the limit of simultaneously opened files
+```
+ulimit -n 65535
+```
 ## Unit testing
 ```
 bin/phpunit

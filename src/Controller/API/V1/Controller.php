@@ -18,9 +18,7 @@
 
 namespace App\Controller\API\V1;
 
-use Datetime;
 use Exception;
-use App\Entity\User;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -41,23 +39,6 @@ class Controller extends AbstractController
     public function __construct(EntityManagerInterface $entityManager)
     {
         $this->em = $entityManager;
-    }
-
-    /**
-     * Response the HTTP_UNAUTHORIZED status.
-     *
-     * @param string $message
-     *
-     * @throws Exception
-     *
-     * @return JsonResponse
-     */
-    public function responseHttpUnauthorized(string $message = 'Unauthorized'): JsonResponse
-    {
-        return new JsonResponse([
-            'message' => $message,
-            'code'    => Response::HTTP_UNAUTHORIZED,
-        ], Response::HTTP_UNAUTHORIZED);
     }
 
     /**
@@ -126,83 +107,6 @@ class Controller extends AbstractController
             'message' => $message,
             'code'    => Response::HTTP_INTERNAL_SERVER_ERROR,
         ], Response::HTTP_INTERNAL_SERVER_ERROR);
-    }
-
-    /**
-     * Get user by token.
-     *
-     * @param string $token
-     *
-     * @throws Exception
-     *
-     * @return User | null
-     */
-    protected function getUserByToken(string $token): ?User
-    {
-        /** @var User $user */
-        $user = $this->em->getRepository('App:User')->createQueryBuilder('u')
-            //->where('u.until > :now')->setParameter('now', new Datetime())
-            ->andWhere('u.token = :token')->setParameter('token', $token)
-            ->getQuery()->getOneOrNullResult();
-
-        return $user;
-    }
-
-    /**
-     * Check if the token is valid.
-     *
-     * @param User $user
-     *
-     * @throws Exception
-     *
-     * @return bool
-     */
-    protected function isValidUntil(User $user): bool
-    {
-        return new Datetime() < $user->getUntil();
-    }
-
-    /**
-     * Get the Bearer token from the header and find the user.
-     *
-     * @param Request $request
-     *
-     * @return User | JsonResponse | null
-     */
-    protected function getUserByAuthorizationHeader(Request $request): ?User
-    {
-        $authorization = $request->headers->get('Authorization');
-
-        if (!$authorization) {
-            return null;
-        }
-
-        $authorization = explode(' ', $authorization);
-
-        if (2 !== count($authorization)) {
-            return null;
-        }
-
-        if (!isset($authorization[0]) or !isset($authorization[1])) {
-            return null;
-        }
-
-        $bearer = $authorization[0];
-
-        if ('Bearer' !== $bearer) {
-            return null;
-        }
-
-        $token = $authorization[1];
-
-        try {
-            return $this->getUserByToken($token);
-        } catch (Exception $e) {
-            return new JsonResponse([
-                'message' => $e->getMessage(),
-                'code'    => Response::HTTP_INTERNAL_SERVER_ERROR,
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
     }
 
     /**

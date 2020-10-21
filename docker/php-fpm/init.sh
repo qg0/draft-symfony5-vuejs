@@ -5,6 +5,8 @@ function progressbar() {
   echo -e "\n\n\033[1;34m ==================== $1% ==================== \033[0;32m\n\n"
 }
 
+ulimit -n 65535
+
 php -d memory_limit=-1 /usr/bin/composer install -n
 
 progressbar 10

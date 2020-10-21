@@ -19,7 +19,6 @@
 namespace App\Controller\API\V1;
 
 use Exception;
-use App\Entity\User;
 use App\Entity\Status;
 use App\Entity\Document;
 use Pagerfanta\Pagerfanta;
@@ -45,25 +44,19 @@ class DocumentController extends Controller
      *
      * @Route(methods={"POST"}, name="api__v1__document__create")
      *
-     * @param Request $request
-     *
      * @throws Exception
      *
      * @return Response
      */
-    public function createAction(Request $request): Response
+    public function createAction(): Response
     {
-        $user = $this->getUserByAuthorizationHeader($request);  /** @var User $user */
-
-        if (!$user || !$this->isValidUntil($user)) {
-            return $this->responseHttpUnauthorized();
-        }
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
 
         try {
             $document = new Document();
             $document->setPayload((object) []);
             $document->setStatus($this->getStatusDraft());
-            $document->setUser($user);
+            $document->setUser($this->getUser());
 
             $this->em->persist($document);
             $this->em->flush();
@@ -88,11 +81,7 @@ class DocumentController extends Controller
      */
     public function editAction(Request $request, string $id): Response
     {
-        $user = $this->getUserByAuthorizationHeader($request); /** @var User $user */
-
-        if (!$user || !$this->isValidUntil($user)) {
-            return $this->responseHttpUnauthorized();
-        }
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
 
         $requestContent  = $request->getContent();
         $requestDocument = json_decode($requestContent);
@@ -104,7 +93,7 @@ class DocumentController extends Controller
         $requestPayload = (array) $requestDocument->document->payload;
 
         try {
-            $document = $this->em->getRepository('App:Document')->find($id); /** @var Document $document */
+            $document = $this->em->getRepository(Document::class)->find($id); /** @var Document $document */
 
             if (!$document) {
                 return $this->responseHttpNotFound();
@@ -115,7 +104,7 @@ class DocumentController extends Controller
                     return $this->responseHttpBadRequest('The document had already been published');
 
                 case $this->getStatusDraft():
-                    if ($document->getUser() !== $user) {
+                    if ($document->getUser() !== $this->getUser()) {
                         return $this->responseHttpForbidden('User is not the owner of the document');
                     }
 
@@ -150,29 +139,24 @@ class DocumentController extends Controller
      *
      * @Route("/{id}/publish", methods={"POST"}, name="api__v1__document__publish")
      *
-     * @param Request $request
-     * @param string  $id
+     * @param string $id
      *
      * @throws Exception
      *
      * @return Response
      */
-    public function publishAction(Request $request, string $id): Response
+    public function publishAction(string $id): Response
     {
-        $user = $this->getUserByAuthorizationHeader($request); /** @var User $user */
-
-        if (!$user || !$this->isValidUntil($user)) {
-            return $this->responseHttpUnauthorized();
-        }
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
 
         try {
-            $document = $this->em->getRepository('App:Document')->find($id); /** @var Document $document */
+            $document = $this->em->getRepository(Document::class)->find($id); /** @var Document $document */
 
             if (!$document) {
                 return $this->responseHttpNotFound();
             }
 
-            if ($document->getUser() !== $user) {
+            if ($document->getUser() !== $this->getUser()) {
                 return $this->responseHttpForbidden('User is not the owner of the document');
             }
 
@@ -205,24 +189,13 @@ class DocumentController extends Controller
      */
     public function getAction(Request $request, string $id): Response
     {
-        $user = $this->getUserByAuthorizationHeader($request); /** @var User $user */
-
-        if ($user && !$this->isValidUntil($user)) {
-            return $this->responseHttpUnauthorized();
-        }
-
-        $document = $this->em->getRepository('App:Document')->find($id); /** @var Document $document */
+        $document = $this->em->getRepository(Document::class)->find($id); /** @var Document $document */
 
         if (!$document) {
             return $this->responseHttpNotFound();
         }
 
-        $isOwnerCanGetOwnDocument = $document->getUser() === $user;
-
-        $isNonOwnerOrAnonymousCanGetPublishedDocument = $document->getUser() !== $user
-            && $document->getStatus() === $this->getStatusPublished();
-
-        if ($isOwnerCanGetOwnDocument || $isNonOwnerOrAnonymousCanGetPublishedDocument) {
+        if ($document->getUser() === $this->getUser() || $document->getStatus() === $this->getStatusPublished()) {
             return $this->responseDocumentHttpOk($document);
         }
 
@@ -245,19 +218,13 @@ class DocumentController extends Controller
         $page    = $request->query->get('page', 1);
         $perPage = $request->query->get('perPage', 20);
 
-        $user = $this->getUserByAuthorizationHeader($request); /** @var User $user */
-
-        if ($user && !$this->isValidUntil($user)) {
-            return $this->responseHttpUnauthorized();
-        }
-
-        $qb = $this->em->getRepository('App:Document')->createQueryBuilder('d')
+        $qb = $this->em->getRepository(Document::class)->createQueryBuilder('d')
             ->leftJoin('d.status', 's')
             ->orderBy('d.createdAt', 'DESC');
 
-        if ($user) {
+        if ($this->getUser()) {
             $qb->andwhere('d.user = :user OR d.user != :user AND s.title = :title')
-                ->setParameter('user', $user)
+                ->setParameter('user', $this->getUser())
                 ->setParameter('title', 'published');
         } else {
             $qb->andwhere('s.title = :title')->setParameter('title', 'published');
@@ -294,11 +261,11 @@ class DocumentController extends Controller
      *
      * @throws Exception
      *
-     * @return Status|Response
+     * @return Status|ResponseresponseHttpBadRequest
      */
     protected function getStatusDraft(): ?Status
     {
-        $status = $this->em->getRepository('App:Status')->findOneBy(['title' => 'draft']); /** @var Status $status */
+        $status = $this->em->getRepository(Status::class)->findOneBy(['title' => 'draft']); /** @var Status $status */
 
         if (!$status) {
             return $this->responseHttpNotFound('"Draft" status has not been found');
@@ -317,7 +284,7 @@ class DocumentController extends Controller
     protected function getStatusPublished(): ?Status
     {
         /** @var Status $status */
-        $status = $this->em->getRepository('App:Status')->findOneBy(['title' => 'published']);
+        $status = $this->em->getRepository(Status::class)->findOneBy(['title' => 'published']);
 
         if (!$status) {
             return $this->responseHttpNotFound('"Published" status has not been found');

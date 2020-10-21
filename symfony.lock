@@ -1,13 +1,4 @@
 {
-    "antishov/doctrine-extensions-bundle": {
-        "version": "1.4",
-        "recipe": {
-            "repo": "github.com/symfony/recipes-contrib",
-            "branch": "master",
-            "version": "1.4",
-            "ref": "6c1ceb662f8997085f739cd089bfbef67f245983"
-        }
-    },
     "babdev/pagerfanta-bundle": {
         "version": "v2.4.3"
     },
@@ -216,6 +207,18 @@
             "phpcs.xml.dist"
         ]
     },
+    "stof/doctrine-extensions-bundle": {
+        "version": "1.2",
+        "recipe": {
+            "repo": "github.com/symfony/recipes-contrib",
+            "branch": "master",
+            "version": "1.2",
+            "ref": "6c1ceb662f8997085f739cd089bfbef67f245983"
+        },
+        "files": [
+            "config/packages/stof_doctrine_extensions.yaml"
+        ]
+    },
     "swaggest/json-diff": {
         "version": "v3.7.5"
     },
@@ -346,9 +349,6 @@
         "version": "v5.0.10"
     },
     "symfony/http-kernel": {
-        "version": "v5.0.10"
-    },
-    "symfony/inflector": {
         "version": "v5.0.10"
     },
     "symfony/intl": {

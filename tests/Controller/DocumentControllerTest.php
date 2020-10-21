@@ -146,6 +146,7 @@ class DocumentControllerTest extends WebTestCase
         $id  = $this->testCreateDraftDocumentByUserWithValidToken();
         $uri = '/api/v1/document/'.$id;
 
+        $this->client = static::$kernel->getContainer()->get('test.client'); // New stateless instance
         $this->client->request('PATCH', $uri);
 
         $this->assertEquals(Response::HTTP_UNAUTHORIZED, $this->client->getResponse()->getStatusCode());
@@ -231,7 +232,7 @@ class DocumentControllerTest extends WebTestCase
     public function testNotEditedByNonOwner(): void
     {
         $id   = $this->testCreateDraftDocumentByUserWithValidToken();
-        $user = $this->getUserAndProlongateToken('test_user_valid_token_2');
+        $user = $this->getUserAndProlongateToken(self::USER_VALID_TOKEN_2);
         $uri  = '/api/v1/document/'.$id;
 
         $this->client->request('PATCH', $uri, [], [], $this->getHeaders($user), $this->getJsonData());
@@ -302,11 +303,13 @@ class DocumentControllerTest extends WebTestCase
             'digest',
             'mutual',
             'aws4-hmac-sha256',
+            'x-auth-token',
         ];
 
         $whiteSpaces = [
             '',
             ' ',
+            '  ',
             '\t',
             '\f',
             '\v',
@@ -346,6 +349,7 @@ class DocumentControllerTest extends WebTestCase
         foreach ($httpAuthorizationInvalids as $httpAuthorizationInvalid) {
             $serverHeaders = ['HTTP_Authorization' => $httpAuthorizationInvalid];
 
+            $this->client = static::$kernel->getContainer()->get('test.client'); // New stateless instance
             $this->client->request('POST', $uri, [], [], $serverHeaders);
 
             $response = $this->client->getResponse(); /* @var Response $response */
@@ -354,8 +358,9 @@ class DocumentControllerTest extends WebTestCase
         }
 
         /** @var User $user */
-        $user = $this->em->getRepository('App:User')->findOneBy(['login' => 'test_user_invalid_token_1']);
+        $user = $this->em->getRepository(User::class)->findOneBy(['login' => 'test_user_invalid_token_1']);
 
+        $this->client = static::$kernel->getContainer()->get('test.client'); // New stateless instance
         $this->client->request('POST', $uri, [], [], $this->getHeaders($user));
 
         $this->assertEquals(Response::HTTP_UNAUTHORIZED, $this->client->getResponse()->getStatusCode());
@@ -375,7 +380,8 @@ class DocumentControllerTest extends WebTestCase
         $id  = $this->testCreateDraftDocumentByUserWithValidToken();
         $uri = '/api/v1/document/'.$id;
 
-        $this->client->request('GET', $uri);
+        $this->client = static::$kernel->getContainer()->get('test.client'); // New stateless instance
+        $this->client->request('GET', $uri, [], [], []);
 
         $this->assertEquals(Response::HTTP_FORBIDDEN, $this->client->getResponse()->getStatusCode());
     }
@@ -396,6 +402,7 @@ class DocumentControllerTest extends WebTestCase
         $user = $this->getUserAndProlongateToken();
 
         $this->client->request('GET', $uri, [], [], $this->getHeaders($user));
+
         $this->getDocumentAndCheckSchemaHttpOK($this->client->getResponse());
     }
 
@@ -417,7 +424,8 @@ class DocumentControllerTest extends WebTestCase
         $this->client->request('POST', $uriPublish, [], [], $this->getHeaders($user));
         $this->getDocumentAndCheckSchemaHttpOK($this->client->getResponse());
 
-        $uri = '/api/v1/document/'.$id;
+        $uri          = '/api/v1/document/'.$id;
+        $this->client = static::$kernel->getContainer()->get('test.client'); // New stateless instance
         $this->client->request('GET', $uri, [], [], $this->getHeaders());
         $this->getDocumentAndCheckSchemaHttpOK($this->client->getResponse());
     }
@@ -469,7 +477,8 @@ class DocumentControllerTest extends WebTestCase
         foreach ($user1DocumentIds as $user1DocumentId) {
             $this->assertFalse(in_array($user1DocumentId, $responseAnonymousIds));
 
-            $uriPublish = '/api/v1/document/'.$user1DocumentId.'/publish';
+            $uriPublish   = '/api/v1/document/'.$user1DocumentId.'/publish';
+            $this->client = static::$kernel->getContainer()->get('test.client'); // New stateless instance
             $this->client->request('POST', $uriPublish, [], [], $this->getHeaders($user));
         }
 
@@ -562,7 +571,7 @@ class DocumentControllerTest extends WebTestCase
         $documentIds = [];
 
         foreach ($logins as $login) {  /** @var User $user */
-            $user = $this->em->getRepository('App:User')->findOneBy(['login' => $login]);
+            $user = $this->em->getRepository(User::class)->findOneBy(['login' => $login]);
 
             foreach ($user->getDocuments() as $document) { /* @var Document $document */
                 $documentIds[] = $document->getId();
@@ -572,12 +581,12 @@ class DocumentControllerTest extends WebTestCase
             $this->em->flush($user);
 
             /* @var User $userDeleted */
-            $userDeleted = $this->em->getRepository('App:User')->findOneBy(['login' => $login]);
+            $userDeleted = $this->em->getRepository(User::class)->findOneBy(['login' => $login]);
             $this->assertNull($userDeleted);
         }
 
         foreach ($documentIds as $id) {
-            $documentDeleted = $this->em->getRepository('App:Document')->findOneBy(['id' => $id]);
+            $documentDeleted = $this->em->getRepository(Document::class)->findOneBy(['id' => $id]);
             $this->assertNull($documentDeleted);
         }
     }
@@ -593,9 +602,11 @@ class DocumentControllerTest extends WebTestCase
      */
     protected function getListResponse(User $user = null): object
     {
-        $uriList = '/api/v1/document';
+        $uri = '/api/v1/document';
 
-        $this->client->request('GET', $uriList, [], [], $user ? $this->getHeaders($user) : []);
+        $this->client = static::$kernel->getContainer()->get('test.client'); // New stateless instance
+        $this->client->request('GET', $uri, [], [], $user ? $this->getHeaders($user) : []);
+
         $response = $this->client->getResponse(); /** @var Response $response */
         $schema   = Schema::import($this->documentListResponseSchemaUrl);
         $schema->in(json_decode($response->getContent()));
@@ -796,7 +807,9 @@ class DocumentControllerTest extends WebTestCase
         $uri = '/api/v1/document?';
         $uri .= http_build_query(['page' => $totalNextPage]);
 
+        $this->client = static::$kernel->getContainer()->get('test.client'); // New stateless instance
         $this->client->request('GET', $uri);
+
         $this->assertEquals(Response::HTTP_NOT_FOUND, $this->client->getResponse()->getStatusCode());
     }
 
@@ -836,9 +849,9 @@ class DocumentControllerTest extends WebTestCase
      *
      * @return User
      */
-    protected function getUserAndProlongateToken($login = 'test_user_valid_token_1'): User
+    protected function getUserAndProlongateToken($login = self::USER_VALID_TOKEN_1): User
     {
-        $user = $this->em->getRepository('App:User')->findOneBy(['login' => $login]);
+        $user = $this->em->getRepository(User::class)->findOneBy(['login' => $login]);
         $this->prolongateToken($user);
 
         return $user;

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Check and fix the code syntax
 
+ulimit -n 65535
+
 clear
 bin/php-cs-fixer fix .php_cs.dist >> /dev/null
 bin/php-cs-fixer fix src
